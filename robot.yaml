@@ -1,6 +1,6 @@
 tasks:
   Run Python:
-    shell: python expenses.py
+    shell: python main.py
 
 condaConfigFile: environment.yml
 artifactsDir: output
