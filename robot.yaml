@@ -1,0 +1,10 @@
+tasks:
+  Run Python:
+    shell: python expenses.py
+
+condaConfigFile: environment.yml
+artifactsDir: output
+PATH:
+  - .
+PYTHONPATH:
+  - .
