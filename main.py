@@ -28,18 +28,24 @@ def go_to_agencies_page():
 
 def get_agencies_amounts():
     agencies_data = defaultdict(list)
-    agency_cnt = browser_lib.get_element_count("xpath://div[@*='agency-tiles-container']"
-                                                 "//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')]")
+    agency_count = browser_lib.get_element_count(
+        "xpath://div[@*='agency-tiles-container']"
+        "//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')]"
+    )
     count = 0
     xpath_for_used_agency_names = "contains(text(), '#')"
-    while count < agency_cnt:
-        agency_name = browser_lib.find_element(f"xpath://div[@*='agency-tiles-container']"
-                                               f"//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')"
-                                               f" and not ({xpath_for_used_agency_names})]")
+    while count < agency_count:
+        agency_name = browser_lib.find_element(
+            f"xpath://div[@*='agency-tiles-container']"
+            f"//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')"
+            f" and not ({xpath_for_used_agency_names})]"
+        )
         agency_name_text = agency_name.text
-        agency_amount = browser_lib.find_element(f"xpath://div[@*='agency-tiles-container']"
-                                                 f"//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')"
-                                                 f" and not ({xpath_for_used_agency_names})]/ancestor::a/span[2]")
+        agency_amount = browser_lib.find_element(
+            f"xpath://div[@*='agency-tiles-container']"
+            f"//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')"
+            f" and not ({xpath_for_used_agency_names})]/ancestor::a/span[2]"
+        )
         xpath_for_used_agency_names += f" or contains(text(), '{agency_name_text}')"
         count += 1
         agencies_data['Agency'].append(agency_name_text)
