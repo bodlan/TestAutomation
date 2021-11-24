@@ -1,6 +1,7 @@
 from RPA.Browser.Selenium import Selenium
 from RPA.PDF import PDF
 from datetime import timedelta
+from collections import defaultdict
 import pandas as pd
 import os
 import time
@@ -26,14 +27,23 @@ def go_to_agencies_page():
 
 
 def get_agencies_amounts():
-    agencies_and_value = []
-    agencies = browser_lib.find_elements("xpath://div[@*='agency-tiles-container']//a/span")
-    for agency in agencies:
-        agencies_and_value.append(agency.text)
-    agencies_data = {
-        'Agency': agencies_and_value[::2],
-        'Amount': agencies_and_value[1::2]
-    }
+    agencies_data = defaultdict(list)
+    agency_cnt = browser_lib.get_element_count("xpath://div[@*='agency-tiles-container']"
+                                                 "//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')]")
+    count = 0
+    xpath_for_used_agency_names = "contains(text(), '#')"
+    while count < agency_cnt:
+        agency_name = browser_lib.find_element(f"xpath://div[@*='agency-tiles-container']"
+                                               f"//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')"
+                                               f" and not ({xpath_for_used_agency_names})]")
+        agency_name_text = agency_name.text
+        agency_amount = browser_lib.find_element(f"xpath://div[@*='agency-tiles-container']"
+                                                 f"//span[contains(concat(' ', normalize-space(@class),' '), 'h4 w200')"
+                                                 f" and not ({xpath_for_used_agency_names})]/ancestor::a/span[2]")
+        xpath_for_used_agency_names += f" or contains(text(), '{agency_name_text}')"
+        count += 1
+        agencies_data['Agency'].append(agency_name_text)
+        agencies_data['Amount'].append(agency_amount.text)
     agencies_data_frame = pd.DataFrame(agencies_data)
     agencies_data_frame.to_excel('output/Agencies.xlsx', sheet_name="agencies", index=False)
 
@@ -49,37 +59,42 @@ def get_agency_individual_investment():
         "xpath://div[@class='dataTables_paginate paging_full_numbers']/a[@class='paginate_button next']",
         timeout=timedelta(seconds=10))
 
-    uii_links_raw = browser_lib.find_elements("xpath://div[@class='dataTables_scrollBody']//tbody//a")
-    uii_links = [url.get_attribute("href") for url in uii_links_raw]
-    investments_body_with_links_raw = browser_lib.find_elements("xpath://tbody/descendant::a[starts-with(@href,'/')]"
-                                                                "/ancestor::tr/td")
-    investments_body_without_links_raw = browser_lib.find_elements("xpath://div[@class='dataTables_scrollBody']"
-                                                                   "//tbody/tr[not(descendant::a)]/td")
-    investments_body_with_links = [cell.text for cell in investments_body_with_links_raw]
-    investments_body_without_links = [cell.text for cell in investments_body_without_links_raw]
+    table = browser_lib.find_element('css:#investments-table-object')
+    individual_investment = defaultdict(list)
+    rows = table.find_elements_by_xpath('//tbody/tr[@role]')
+    uii_link_list = []
+    uii_names_list = []
+    titles_list = []
     file_names = []
-    for link in uii_links:
-        file_names.append(link.split(sep="/")[-1])
-    titles = investments_body_with_links[2::7]
-    uii_names = investments_body_with_links[::7]
-    individual_investment = {
-        'UII': investments_body_with_links[::7] + investments_body_without_links[::7],
-        'Bureau': investments_body_with_links[1::7] + investments_body_without_links[1::7],
-        'Investment Title': investments_body_with_links[2::7] + investments_body_without_links[2::7],
-        'Total FY2021 Spending ($M)': investments_body_with_links[3::7] + investments_body_without_links[3::7],
-        'Type': investments_body_with_links[4::7] + investments_body_without_links[4::7],
-        'CIO Rating': investments_body_with_links[5::7] + investments_body_without_links[5::7],
-        '# of Projects': investments_body_with_links[6::7] + investments_body_without_links[6::7]
-    }
+
+    def get_element_from_xpath(xpath):
+        return ''.join([cell.text for cell in row.find_elements_by_xpath(xpath)])
+
+    for row in rows:
+        uii_link_raw = row.find_elements_by_xpath('td[1]/a')
+        uii_link = [url.get_attribute("href") for url in uii_link_raw]
+        individual_investment['UII'].append(get_element_from_xpath('td[1]'))
+        individual_investment['Bureau'].append(get_element_from_xpath('td[2]'))
+        individual_investment['Investment Title'].append(get_element_from_xpath('td[3]'))
+        individual_investment['Total FY2021 Spending ($M)'].append(get_element_from_xpath('td[4]'))
+        individual_investment['Type'].append(get_element_from_xpath('td[5]'))
+        individual_investment['CIO Rating'].append(get_element_from_xpath('td[6]'))
+        individual_investment['# of Projects'].append(get_element_from_xpath('td[7]'))
+        if uii_link:
+            uii_link_list.append(''.join(uii_link))
+            uii_names_list.append(get_element_from_xpath('td[1]'))
+            titles_list.append(get_element_from_xpath('td[3]'))
+            file_names.append(''.join(uii_link).split(sep="/")[-1])
     individual_investment_data_frame = pd.DataFrame(individual_investment)
     individual_investment_data_frame.to_excel('./output/Individual_Investment.xlsx', sheet_name="investments",
                                               index=False)
-    return zip(uii_links, uii_names, titles, file_names)
+    return zip(uii_link_list, uii_names_list, titles_list, file_names)
 
 
 def get_business_case(data):
     files_count = len(os.listdir(path_to_download_directory))
     for link, uii, investment_title, file_name in data:
+        print("link:", link, "ui:", uii, "title:", investment_title, "file name:", file_name)
         browser_lib.execute_javascript("window.open('{}')".format(link))
         windows = browser_lib.get_window_handles()
         browser_lib.switch_window(windows[-1])
@@ -95,7 +110,7 @@ def get_business_case(data):
                 files = os.listdir(path_to_download_directory)
                 for fname in files:
                     if fname.endswith('.crdownload'):
-                        wait=True
+                        wait = True
         files_count += 1
         pdf = PDF()
         pdf_text_raw = pdf.get_text_from_pdf(f"./output/{file_name}.pdf", pages=[1])
@@ -107,8 +122,10 @@ def get_business_case(data):
                 print(f"Data matched in {os.getcwd()}/output/{file_name}.pdf")
             else:
                 print(f"Data mismatched in {os.getcwd()}/output/{file_name}.pdf")
+                print(f"Mismatched data in Investment title: {pdf_investment_title} and {investment_title}")
         else:
             print(f"Data mismatched in {os.getcwd()}/output/{file_name}.pdf")
+            print(f"Mismatched data in UII: {pdf_uii} and {uii}")
 
 
 def main():
