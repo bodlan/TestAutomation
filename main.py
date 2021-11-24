@@ -123,9 +123,14 @@ def get_business_case(data):
             else:
                 print(f"Data mismatched in {os.getcwd()}/output/{file_name}.pdf")
                 print(f"Mismatched data in Investment title: {pdf_investment_title} and {investment_title}")
-        else:
+        elif pdf_investment_title == investment_title:
             print(f"Data mismatched in {os.getcwd()}/output/{file_name}.pdf")
             print(f"Mismatched data in UII: {pdf_uii} and {uii}")
+        else:
+            print(f"Data mismatched in {os.getcwd()}/output/{file_name}.pdf")
+            print(f"Mismatched data in UII and Investment title:"
+                  f"\n{pdf_uii} and {uii}"
+                  f"\n{pdf_investment_title} and {investment_title}")
 
 
 def main():
